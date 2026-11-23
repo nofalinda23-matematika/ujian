@@ -1,225 +1,324 @@
-/**
- * KONFIGURASI PARAMETER APLIKASI CBT
- * Sesuaikan parameter di bawah ini sesuai kebutuhan ujian Anda.
- */
-const APP_CONFIG = {
-  JUDUL_UJIAN: "Sumatif Tengah Semester (STS)",
-  MATA_PELAJARAN: "Literasi & Numerasi Terpadu",
-  SATUAN_PENDIDIKAN: "SMPN 01 Konoha",
-  KELAS_FASE: "Kelas 7 / Fase D",
-  DURASI_MENIT: 90,
-  PASSWORD_ADMIN: "123", // Sesuai parameter (mendukung "123" atau "admincbt123" di fungsi login)
-  IZINKAN_PEMBAHASAN: true // Ubah ke false jika siswa tidak boleh melihat pembahasan setelah selesai
-};
-
-/**
- * FUNGSI UTAMA RENDER WEB APP
- */
-function doGet(e) {
-  const template = HtmlService.createTemplateFromFile('Index');
-  template.config = JSON.stringify({
-    judulUjian: APP_CONFIG.JUDUL_UJIAN,
-    mataPelajaran: APP_CONFIG.MATA_PELAJARAN,
-    satuanPendidikan: APP_CONFIG.SATUAN_PENDIDIKAN,
-    kelasFase: APP_CONFIG.KELAS_FASE,
-    durasiMenit: APP_CONFIG.DURASI_MENIT,
-    izinkanPembahasan: APP_CONFIG.IZINKAN_PEMBAHASAN
-  });
-  
-  return template.evaluate()
-    .setTitle(`${APP_CONFIG.JUDUL_UJIAN} - ${APP_CONFIG.SATUAN_PENDIDIKAN}`)
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
-    .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no');
-}
-
-/**
- * 1. OTOMATISASI DATABASE GOOGLE SHEETS
- * Jalankan fungsi ini satu kali dari Editor GAS untuk membuat struktur sheet & data sampel.
- */
-function setupDatabase() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-
-  // --- SHEET 1: Master_Soal ---
-  let sheetSoal = ss.getSheetByName("Master_Soal");
-  if (!sheetSoal) {
-    sheetSoal = ss.insertSheet("Master_Soal");
-  } else {
-    sheetSoal.clear();
-  }
-
-  const headerSoal = [
-    "ID_Soal", "Nomor_Soal", "Jenis_Soal", "Teks_Stimulus", "Gambar_Stimulus_URL",
-    "Teks_Soal", "Gambar_Soal_URL", "Pilihan_A", "Pilihan_B", "Pilihan_C",
-    "Pilihan_D", "Kunci_Jawaban", "Pembahasan", "Bobot"
-  ];
-  sheetSoal.appendRow(headerSoal);
-  sheetSoal.getRange(1, 1, 1, headerSoal.length).setFontWeight("bold").setBackground("#1e3a8a").setFontColor("#ffffff");
-
-  // Data Sampel Minimal 3 Soal Lengkap (PG, PG_Kompleks, Benar_Salah)
-  const sampleSoal = [
-    [
-      "SOAL-001", 1, "PG",
-      "<b>Wacana 1: Ekosistem Hutan Bakau (Mangrove)</b><br><br>Hutan bakau merupakan ekosistem pesisir yang unik dan memiliki peran vital dalam menjaga keseimbangan lingkungan. Akar-akar pohon bakau yang tunjang dan rapat mampu meredam energi gelombang laut sehingga mencegah terjadinya abrasi pantai. Selain itu, hutan bakau berfungsi sebagai tempat pemijahan (spawning ground) dan pembesaran (nursery ground) bagi berbagai jenis ikan, udang, dan kepiting.<br><br>Namun, dalam dua dekade terakhir, luas hutan bakau mengalami penyusutan signifikan akibat alih fungsi lahan menjadi tambak udang intensif, pemukiman pesisir, dan penebangan liar untuk kayu bakar.",
-      "https://unsplash.com",
-      "Berdasarkan wacana di atas, fungsi ekologis utama dari struktur akar pohon bakau yang rapat adalah...",
-      "",
-      "Menyaring limbah industri berat dari daratan",
-      "Meredam energi gelombang laut untuk mencegah abrasi pantai",
-      "Menghasilkan kayu bakar berkualitas tinggi bagi warga",
-      "Meningkatkan kadar garam air laut di sekitar muara",
-      "B",
-      "Pada paragraf pertama disebutkan secara eksplisit bahwa akar pohon bakau yang tunjang dan rapat mampu meredam energi gelombang laut sehingga mencegah terjadinya abrasi pantai.",
-      30
-    ],
-    [
-      "SOAL-002", 2, "PG_Kompleks",
-      "<b>Infografis Data Sampah Plastik Nasional</b><br><br>Sebuah riset lingkungan mencatat bahwa dari total 68 juta ton timbulan sampah nasional per tahun, sekitar 18% di antaranya merupakan sampah plastik. Dari seluruh sampah plastik tersebut:<br>• 40% berasal dari kemasan makanan dan minuman sekali pakai.<br>• 25% berasal dari kantong belanja plastik (kresek).<br>• 20% berasal dari botol plastik PET.<br>• 15% berasal dari produk plastik rumah tangga lainnya.<br><br>Tingkat daur ulang plastik nasional saat ini baru mencapai 10%, sementara sisanya berakhir di TPA, dibakar terbuka, atau mencemari sungai dan lautan.",
-      "",
-      "Manakah pernyataan berikut yang <b>BENAR</b> berdasarkan data riset sampah plastik di atas? <i>(Pilih lebih dari satu jawaban yang benar)</i>",
-      "",
-      "Total timbulan sampah plastik nasional mencapai lebih dari 12 juta ton per tahun.",
-      "Kemasan makanan/minuman dan kantong kresek menyumbang lebih dari separuh total sampah plastik.",
-      "Sebanyak 90% sampah plastik nasional belum berhasil didaur ulang.",
-      "Botol plastik PET merupakan penyumbang sampah plastik terbesar dibandingkan jenis lainnya.",
-      "A,B,C",
-      "Pembahasan:<br>• Pilihan A BENAR: 18% x 68 juta ton = 12,24 juta ton.<br>• Pilihan B BENAR: 40% + 25% = 65% (lebih dari separuh).<br>• Pilihan C BENAR: Tingkat daur ulang 10%, artinya 100% - 10% = 90% belum didaur ulang.<br>• Pilihan D SALAH: Penyumbang terbesar adalah kemasan makanan/minuman (40%).",
-      40
-    ],
-    [
-      "SOAL-003", 3, "Benar_Salah",
-      "<b>Kasus Uji Coba Kecepatan Kendaraan</b><br><br>Sebuah mobil listrik melakukan uji coba lintasan lurus sejauh 180 km. Pada 1 jam pertama, mobil melaju dengan kecepatan konstan 60 km/jam. Sisa jarak perjalanan kemudian ditempuh dalam waktu 1,5 jam.",
-      "https://unsplash.com",
-      "Pernyataan: Kecepatan rata-rata mobil listrik tersebut selama menempuh seluruh lintasan adalah <b>72 km/jam</b>. Tentukan apakah pernyataan tersebut Benar atau Salah!",
-      "",
-      "Benar",
-      "Salah",
-      "-",
-      "-",
-      "A",
-      "Total jarak = 180 km. Total waktu = 1 jam + 1,5 jam = 2,5 jam. Kecepatan rata-rata = Total Jarak / Total Waktu = 180 km / 2,5 jam = 72 km/jam. Maka pernyataan tersebut BENAR (Pilihan A).",
-      30
-    ]
-  ];
-
-  sampleSoal.forEach(row => sheetSoal.appendRow(row));
-  sheetSoal.setFrozenRows(1);
-
-  // --- SHEET 2: Master_Siswa ---
-  let sheetSiswa = ss.getSheetByName("Master_Siswa");
-  if (!sheetSiswa) {
-    sheetSiswa = ss.insertSheet("Master_Siswa");
-  } else {
-    sheetSiswa.clear();
-  }
-
-  const headerSiswa = ["Nama_Siswa", "Kelas", "Token_Akses"];
-  sheetSiswa.appendRow(headerSiswa);
-  sheetSiswa.getRange(1, 1, 1, headerSiswa.length).setFontWeight("bold").setBackground("#065f46").setFontColor("#ffffff");
-
-  const sampleSiswa = [
-    ["Naruto Uzumaki", "7A", "TKN7A01"],
-    ["Sasuke Uchiha", "7A", "TKN7A02"],
-    ["Sakura Haruno", "7A", "TKN7A03"],
-    ["Shikamaru Nara", "7B", "TKN7B04"],
-    ["Hinata Hyuga", "7B", "TKN7B05"]
-  ];
-  sampleSiswa.forEach(row => sheetSiswa.appendRow(row));
-  sheetSiswa.setFrozenRows(1);
-
-  // --- SHEET 3: Hasil_Ujian ---
-  let sheetHasil = ss.getSheetByName("Hasil_Ujian");
-  if (!sheetHasil) {
-    sheetHasil = ss.insertSheet("Hasil_Ujian");
-  } else {
-    sheetHasil.clear();
-  }
-
-  const headerHasil = [
-    "Timestamp", "Nama_Siswa", "Kelas", "Nilai_Akhir",
-    "Total_Benar", "Total_Salah", "Pelanggaran_Tab", "Detail_Jawaban_JSON"
-  ];
-  sheetHasil.appendRow(headerHasil);
-  sheetHasil.getRange(1, 1, 1, headerHasil.length).setFontWeight("bold").setBackground("#7c2d12").setFontColor("#ffffff");
-  sheetHasil.setFrozenRows(1);
-
-  // Hapus Sheet1 default jika masih ada dan kosong
-  const defaultSheet = ss.getSheetByName("Sheet1");
-  if (defaultSheet && ss.getSheets().length > 1) {
-    ss.deleteSheet(defaultSheet);
-  }
-
-  return "Database CBT Berhasil Dibuat!";
-}
-
-/**
- * 2. VERIFIKASI LOGIN SISWA
- */
-function verifyStudentLogin(nama, token) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheetSiswa = ss.getSheetByName("Master_Siswa");
-  if (!sheetSiswa) {
-    return { success: false, message: "Database Master_Siswa belum diinisialisasi!" };
-  }
-
-  const data = sheetSiswa.getDataRange().getValues();
-  const cleanNama = String(nama).trim().toLowerCase();
-  const cleanToken = String(token).trim().toUpperCase();
-
-  for (let i = 1; i < data.length; i++) {
-    const rowNama = String(data[i][0]).trim().toLowerCase();
-    const rowKelas = String(data[i][1]).trim();
-    const rowToken = String(data[i][2]).trim().toUpperCase();
-
-    if (rowNama === cleanNama && rowToken === cleanToken) {
-      // Cek apakah siswa sudah pernah mengumpulkan ujian (opsional, mencegah ujian ganda)
-      const sheetHasil = ss.getSheetByName("Hasil_Ujian");
-      if (sheetHasil) {
-        const hasilData = sheetHasil.getDataRange().getValues();
-        for (let j = 1; j < hasilData.length; j++) {
-          if (String(hasilData[j][1]).trim().toLowerCase() === cleanNama && String(hasilData[j][2]).trim() === rowKelas) {
-            return { 
-              success: false, 
-              message: "Anda sudah menyelesaikan ujian ini sebelumnya. Hubungi pengawas jika ingin mengulang." 
-            };
-          }
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Garis Bilangan Interaktif - Bilangan Bulat</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f4f8;
+            color: #1e293b;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            margin: 0;
         }
-      }
-
-      return {
-        success: true,
-        student: {
-          nama: String(data[i][0]).trim(),
-          kelas: rowKelas,
-          token: rowToken
+        .container {
+            background: white;
+            padding: 25px;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+            max-width: 900px;
+            width: 100%;
+            text-align: center;
         }
-      };
+        h1 {
+            color: #0f172a;
+            margin-bottom: 5px;
+            font-size: 1.6rem;
+        }
+        p.subtitle {
+            color: #64748b;
+            margin-top: 0;
+            margin-bottom: 20px;
+        }
+        .controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            background: #f8fafc;
+            padding: 15px;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            margin-bottom: 20px;
+        }
+        input[type="number"], select {
+            padding: 10px;
+            font-size: 1.2rem;
+            border: 2px solid #cbd5e1;
+            border-radius: 8px;
+            width: 80px;
+            text-align: center;
+            font-weight: bold;
+        }
+        select {
+            width: 70px;
+            background-color: #e0f2fe;
+            border-color: #38bdf8;
+            color: #0369a1;
+            cursor: pointer;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 1rem;
+            font-weight: bold;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: transform 0.1s, background-color 0.2s;
+        }
+        button:active {
+            transform: scale(0.96);
+        }
+        .btn-play {
+            background-color: #2563eb;
+            color: white;
+        }
+        .btn-play:hover {
+            background-color: #1d4ed8;
+        }
+        .btn-reset {
+            background-color: #e2e8f0;
+            color: #475569;
+        }
+        .btn-reset:hover {
+            background-color: #cbd5e1;
+        }
+        .canvas-wrapper {
+            width: 100%;
+            overflow-x: auto;
+            margin: 10px 0;
+        }
+        canvas {
+            background: #ffffff;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            display: block;
+            margin: 0 auto;
+        }
+        .status-box {
+            margin-top: 15px;
+            padding: 15px;
+            background-color: #fef3c7;
+            border-left: 5px solid #f59e0b;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: 500;
+            color: #92400e;
+            min-height: 28px;
+        }
+        .rules {
+            margin-top: 20px;
+            text-align: left;
+            background: #f1f5f9;
+            padding: 15px 20px;
+            border-radius: 10px;
+            font-size: 0.95rem;
+            color: #334155;
+        }
+        .rules h3 {
+            margin-top: 0;
+            margin-bottom: 8px;
+            font-size: 1rem;
+        }
+        .rules ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+        .rules li {
+            margin-bottom: 4px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Garis Bilangan Interaktif</h1>
+    <p class="subtitle">Media Pembelajaran Penjumlahan & Pengurangan Bilangan Bulat</p>
+
+    <div class="controls">
+        <input type="number" id="num1" value="3" min="-10" max="10" title="Bilangan Pertama (-10 s.d. 10)">
+        <select id="operator" title="Operasi">
+            <option value="+">+</option>
+            <option value="-">-</option>
+        </select>
+        <input type="number" id="num2" value="-5" min="-10" max="10" title="Bilangan Kedua (-10 s.d. 10)">
+        <button class="btn-play" id="btnStart" onclick="startAnimation()">▶ Mulai Animasi</button>
+        <button class="btn-reset" onclick="resetCanvas()">↺ Reset</button>
+    </div>
+
+    <div class="canvas-wrapper">
+        <canvas id="numberLineCanvas" width="840" height="230"></canvas>
+    </div>
+
+    <div class="status-box" id="statusText">
+        Masukkan angka (antara -10 sampai 10), lalu klik <b>Mulai Animasi</b>.
+    </div>
+
+    <div class="rules">
+        <h3>💡 Aturan Pergerakan Karakter:</h3>
+        <ul>
+            <li><b>Posisi Awal:</b> Karakter mulai berdiri di titik <b>0</b> menghadap ke kanan.</li>
+            <li><b>Bilangan Positif (+):</b> Karakter melangkah <b>maju</b> ke arah kanan.</li>
+            <li><b>Bilangan Negatif (-):</b> Karakter berbalik arah (menghadap kiri) lalu melangkah.</li>
+            <li><b>Operasi Pengurangan (-):</b> Karakter berbalik arah terlebih dahulu sebelum melangkah untuk bilangan kedua.</li>
+        </ul>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('numberLineCanvas');
+    const ctx = canvas.getContext('2d');
+    const statusText = document.getElementById('statusText');
+    const btnStart = document.getElementById('btnStart');
+
+    const minVal = -12;
+    const maxVal = 12;
+    const padding = 40;
+    const lineY = 160;
+    const stepWidth = (canvas.width - padding * 2) / (maxVal - minVal);
+
+    let currentPos = 0;
+    let facing = 1; // 1 = kanan, -1 = kiri
+    let animationId = null;
+    let arcs = []; // Menyimpan jejak lengkungan lompatan
+
+    function valToX(val) {
+        return padding + (val - minVal) * stepWidth;
     }
-  }
 
-  return { success: false, message: "Nama Siswa atau Token Akses tidak valid!" };
-}
+    function drawNumberLine() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-/**
- * 3. VERIFIKASI LOGIN ADMIN / GURU
- */
-function verifyAdminLogin(password) {
-  const inputPass = String(password).trim();
-  // Mendukung password dari APP_CONFIG ("123") maupun "admincbt123" sesuai spesifikasi
-  if (inputPass === APP_CONFIG.PASSWORD_ADMIN || inputPass === "admincbt123") {
-    return { success: true };
-  }
-  return { success: false, message: "Password Admin / Guru salah!" };
-}
+        // Garis utama
+        ctx.beginPath();
+        ctx.moveTo(padding - 15, lineY);
+        ctx.lineTo(canvas.width - padding + 15, lineY);
+        ctx.strokeStyle = '#334155';
+        ctx.lineWidth = 3;
+        ctx.stroke();
 
-/**
- * 4. AMBIL SOAL UNTUK SISWA (KEAMANAN KETAT: TANPA KUNCI & PEMBAHASAN)
- */
-function getQuestionsForStudent() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheetSoal = ss.getSheetByName("Master_Soal");
-  if (!sheetSoal) return [];
+        // Panah ujung kiri & kanan
+        drawArrowHead(padding - 20, lineY, Math.PI);
+        drawArrowHead(canvas.width - padding + 20, lineY, 0);
 
-  const data = sheetSoal.getDataRange().getValues();
-  const questions = [];
+        // Titik dan angka
+        for (let i = minVal; i <= maxVal; i++) {
+            const x = valToX(i);
+            ctx.beginPath();
+            ctx.moveTo(x, lineY - 8);
+            ctx.lineTo(x, lineY + 8);
+            ctx.strokeStyle = i === 0 ? '#ef4444' : '#334155';
+            ctx.lineWidth = i === 0 ? 3 : 2;
+            ctx.stroke();
 
-  for (let i = 1; i < data.length; i++) {
+            ctx.font = i === 0 ? 'bold 16px sans-serif' : '14px sans-serif';
+            ctx.fillStyle = i === 0 ? '#ef4444' : '#1e293b';
+            ctx.textAlign = 'center';
+            ctx.fillText(i, x, lineY + 28);
+        }
+
+        // Gambar jejak lengkungan (arcs)
+        arcs.forEach(arc => {
+            drawJumpArc(arc.from, arc.to, arc.color, arc.heightOffset);
+        });
+
+        // Gambar karakter
+        drawCharacter(currentPos, facing);
+    }
+
+    function drawArrowHead(x, y, angle) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(angle);
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(-10, -6);
+        ctx.lineTo(-10, 6);
+        ctx.closePath();
+        ctx.fillStyle = '#334155';
+        ctx.fill();
+        ctx.restore();
+    }
+
+    function drawJumpArc(from, to, color, heightOffset) {
+        if (from === to) return;
+        const startX = valToX(from);
+        const endX = valToX(to);
+        const midX = (startX + endX) / 2;
+        const controlY = lineY - heightOffset;
+
+        ctx.beginPath();
+        ctx.moveTo(startX, lineY - 5);
+        ctx.quadraticCurveTo(midX, controlY, endX, lineY - 5);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2.5;
+        ctx.setLineDash([5, 5]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+    }
+
+    function drawCharacter(pos, dir) {
+        const x = valToX(pos);
+        const y = lineY - 22;
+
+        // Badan lingkaran
+        ctx.beginPath();
+        ctx.arc(x, y, 14, 0, Math.PI * 2);
+        ctx.fillStyle = '#3b82f6';
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#1d4ed8';
+        ctx.stroke();
+
+        // Mata (menunjukkan arah hadap)
+        const eyeOffsetX = dir === 1 ? 5 : -5;
+        ctx.beginPath();
+        ctx.arc(x + eyeOffsetX, y - 3, 3, 0, Math.PI * 2);
+        ctx.fillStyle = 'white';
+        ctx.fill();
+
+        // Paruh / Penunjuk arah
+        ctx.beginPath();
+        if (dir === 1) {
+            ctx.moveTo(x + 14, y);
+            ctx.lineTo(x + 21, y - 3);
+            ctx.lineTo(x + 14, y + 4);
+        } else {
+            ctx.moveTo(x - 14, y);
+            ctx.lineTo(x - 21, y - 3);
+            ctx.lineTo(x - 14, y + 4);
+        }
+        ctx.fillStyle = '#f59e0b';
+        ctx.fill();
+    }
+
+    function sleep(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    function resetCanvas() {
+        currentPos = 0;
+        facing = 1;
+        arcs = [];
+        btnStart.disabled = false;
+        statusText.innerHTML = "Posisi direset ke <b>0</b>. Silakan mulai simulasi.";
+        drawNumberLine();
+    }
+
+    async function startAnimation() {
+        const n1 = parseInt(document.getElementById('num1').value);
+        const op = document.getElementById('operator').value;
+        const n2 = parseInt(document.getElementById('num2').value);
+
+        if (isNaN(n1) || isNaN(n2) || n1 < -10 || n1 > 10 || n2 < -10 || n2 > 10) {
+            alert("Masukkan bilangan bulat antara -10 hingga 10!");
+            return;
+        }
+
+        const finalResult = op === '+' ? n1 + n2 : n1 - n2;
+        if (finalResult < minVal || finalResult > maxVal) {
