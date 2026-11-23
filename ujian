@@ -1,0 +1,225 @@
+/**
+ * KONFIGURASI PARAMETER APLIKASI CBT
+ * Sesuaikan parameter di bawah ini sesuai kebutuhan ujian Anda.
+ */
+const APP_CONFIG = {
+  JUDUL_UJIAN: "Sumatif Tengah Semester (STS)",
+  MATA_PELAJARAN: "Literasi & Numerasi Terpadu",
+  SATUAN_PENDIDIKAN: "SMPN 01 Konoha",
+  KELAS_FASE: "Kelas 7 / Fase D",
+  DURASI_MENIT: 90,
+  PASSWORD_ADMIN: "123", // Sesuai parameter (mendukung "123" atau "admincbt123" di fungsi login)
+  IZINKAN_PEMBAHASAN: true // Ubah ke false jika siswa tidak boleh melihat pembahasan setelah selesai
+};
+
+/**
+ * FUNGSI UTAMA RENDER WEB APP
+ */
+function doGet(e) {
+  const template = HtmlService.createTemplateFromFile('Index');
+  template.config = JSON.stringify({
+    judulUjian: APP_CONFIG.JUDUL_UJIAN,
+    mataPelajaran: APP_CONFIG.MATA_PELAJARAN,
+    satuanPendidikan: APP_CONFIG.SATUAN_PENDIDIKAN,
+    kelasFase: APP_CONFIG.KELAS_FASE,
+    durasiMenit: APP_CONFIG.DURASI_MENIT,
+    izinkanPembahasan: APP_CONFIG.IZINKAN_PEMBAHASAN
+  });
+  
+  return template.evaluate()
+    .setTitle(`${APP_CONFIG.JUDUL_UJIAN} - ${APP_CONFIG.SATUAN_PENDIDIKAN}`)
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no');
+}
+
+/**
+ * 1. OTOMATISASI DATABASE GOOGLE SHEETS
+ * Jalankan fungsi ini satu kali dari Editor GAS untuk membuat struktur sheet & data sampel.
+ */
+function setupDatabase() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  // --- SHEET 1: Master_Soal ---
+  let sheetSoal = ss.getSheetByName("Master_Soal");
+  if (!sheetSoal) {
+    sheetSoal = ss.insertSheet("Master_Soal");
+  } else {
+    sheetSoal.clear();
+  }
+
+  const headerSoal = [
+    "ID_Soal", "Nomor_Soal", "Jenis_Soal", "Teks_Stimulus", "Gambar_Stimulus_URL",
+    "Teks_Soal", "Gambar_Soal_URL", "Pilihan_A", "Pilihan_B", "Pilihan_C",
+    "Pilihan_D", "Kunci_Jawaban", "Pembahasan", "Bobot"
+  ];
+  sheetSoal.appendRow(headerSoal);
+  sheetSoal.getRange(1, 1, 1, headerSoal.length).setFontWeight("bold").setBackground("#1e3a8a").setFontColor("#ffffff");
+
+  // Data Sampel Minimal 3 Soal Lengkap (PG, PG_Kompleks, Benar_Salah)
+  const sampleSoal = [
+    [
+      "SOAL-001", 1, "PG",
+      "<b>Wacana 1: Ekosistem Hutan Bakau (Mangrove)</b><br><br>Hutan bakau merupakan ekosistem pesisir yang unik dan memiliki peran vital dalam menjaga keseimbangan lingkungan. Akar-akar pohon bakau yang tunjang dan rapat mampu meredam energi gelombang laut sehingga mencegah terjadinya abrasi pantai. Selain itu, hutan bakau berfungsi sebagai tempat pemijahan (spawning ground) dan pembesaran (nursery ground) bagi berbagai jenis ikan, udang, dan kepiting.<br><br>Namun, dalam dua dekade terakhir, luas hutan bakau mengalami penyusutan signifikan akibat alih fungsi lahan menjadi tambak udang intensif, pemukiman pesisir, dan penebangan liar untuk kayu bakar.",
+      "https://unsplash.com",
+      "Berdasarkan wacana di atas, fungsi ekologis utama dari struktur akar pohon bakau yang rapat adalah...",
+      "",
+      "Menyaring limbah industri berat dari daratan",
+      "Meredam energi gelombang laut untuk mencegah abrasi pantai",
+      "Menghasilkan kayu bakar berkualitas tinggi bagi warga",
+      "Meningkatkan kadar garam air laut di sekitar muara",
+      "B",
+      "Pada paragraf pertama disebutkan secara eksplisit bahwa akar pohon bakau yang tunjang dan rapat mampu meredam energi gelombang laut sehingga mencegah terjadinya abrasi pantai.",
+      30
+    ],
+    [
+      "SOAL-002", 2, "PG_Kompleks",
+      "<b>Infografis Data Sampah Plastik Nasional</b><br><br>Sebuah riset lingkungan mencatat bahwa dari total 68 juta ton timbulan sampah nasional per tahun, sekitar 18% di antaranya merupakan sampah plastik. Dari seluruh sampah plastik tersebut:<br>• 40% berasal dari kemasan makanan dan minuman sekali pakai.<br>• 25% berasal dari kantong belanja plastik (kresek).<br>• 20% berasal dari botol plastik PET.<br>• 15% berasal dari produk plastik rumah tangga lainnya.<br><br>Tingkat daur ulang plastik nasional saat ini baru mencapai 10%, sementara sisanya berakhir di TPA, dibakar terbuka, atau mencemari sungai dan lautan.",
+      "",
+      "Manakah pernyataan berikut yang <b>BENAR</b> berdasarkan data riset sampah plastik di atas? <i>(Pilih lebih dari satu jawaban yang benar)</i>",
+      "",
+      "Total timbulan sampah plastik nasional mencapai lebih dari 12 juta ton per tahun.",
+      "Kemasan makanan/minuman dan kantong kresek menyumbang lebih dari separuh total sampah plastik.",
+      "Sebanyak 90% sampah plastik nasional belum berhasil didaur ulang.",
+      "Botol plastik PET merupakan penyumbang sampah plastik terbesar dibandingkan jenis lainnya.",
+      "A,B,C",
+      "Pembahasan:<br>• Pilihan A BENAR: 18% x 68 juta ton = 12,24 juta ton.<br>• Pilihan B BENAR: 40% + 25% = 65% (lebih dari separuh).<br>• Pilihan C BENAR: Tingkat daur ulang 10%, artinya 100% - 10% = 90% belum didaur ulang.<br>• Pilihan D SALAH: Penyumbang terbesar adalah kemasan makanan/minuman (40%).",
+      40
+    ],
+    [
+      "SOAL-003", 3, "Benar_Salah",
+      "<b>Kasus Uji Coba Kecepatan Kendaraan</b><br><br>Sebuah mobil listrik melakukan uji coba lintasan lurus sejauh 180 km. Pada 1 jam pertama, mobil melaju dengan kecepatan konstan 60 km/jam. Sisa jarak perjalanan kemudian ditempuh dalam waktu 1,5 jam.",
+      "https://unsplash.com",
+      "Pernyataan: Kecepatan rata-rata mobil listrik tersebut selama menempuh seluruh lintasan adalah <b>72 km/jam</b>. Tentukan apakah pernyataan tersebut Benar atau Salah!",
+      "",
+      "Benar",
+      "Salah",
+      "-",
+      "-",
+      "A",
+      "Total jarak = 180 km. Total waktu = 1 jam + 1,5 jam = 2,5 jam. Kecepatan rata-rata = Total Jarak / Total Waktu = 180 km / 2,5 jam = 72 km/jam. Maka pernyataan tersebut BENAR (Pilihan A).",
+      30
+    ]
+  ];
+
+  sampleSoal.forEach(row => sheetSoal.appendRow(row));
+  sheetSoal.setFrozenRows(1);
+
+  // --- SHEET 2: Master_Siswa ---
+  let sheetSiswa = ss.getSheetByName("Master_Siswa");
+  if (!sheetSiswa) {
+    sheetSiswa = ss.insertSheet("Master_Siswa");
+  } else {
+    sheetSiswa.clear();
+  }
+
+  const headerSiswa = ["Nama_Siswa", "Kelas", "Token_Akses"];
+  sheetSiswa.appendRow(headerSiswa);
+  sheetSiswa.getRange(1, 1, 1, headerSiswa.length).setFontWeight("bold").setBackground("#065f46").setFontColor("#ffffff");
+
+  const sampleSiswa = [
+    ["Naruto Uzumaki", "7A", "TKN7A01"],
+    ["Sasuke Uchiha", "7A", "TKN7A02"],
+    ["Sakura Haruno", "7A", "TKN7A03"],
+    ["Shikamaru Nara", "7B", "TKN7B04"],
+    ["Hinata Hyuga", "7B", "TKN7B05"]
+  ];
+  sampleSiswa.forEach(row => sheetSiswa.appendRow(row));
+  sheetSiswa.setFrozenRows(1);
+
+  // --- SHEET 3: Hasil_Ujian ---
+  let sheetHasil = ss.getSheetByName("Hasil_Ujian");
+  if (!sheetHasil) {
+    sheetHasil = ss.insertSheet("Hasil_Ujian");
+  } else {
+    sheetHasil.clear();
+  }
+
+  const headerHasil = [
+    "Timestamp", "Nama_Siswa", "Kelas", "Nilai_Akhir",
+    "Total_Benar", "Total_Salah", "Pelanggaran_Tab", "Detail_Jawaban_JSON"
+  ];
+  sheetHasil.appendRow(headerHasil);
+  sheetHasil.getRange(1, 1, 1, headerHasil.length).setFontWeight("bold").setBackground("#7c2d12").setFontColor("#ffffff");
+  sheetHasil.setFrozenRows(1);
+
+  // Hapus Sheet1 default jika masih ada dan kosong
+  const defaultSheet = ss.getSheetByName("Sheet1");
+  if (defaultSheet && ss.getSheets().length > 1) {
+    ss.deleteSheet(defaultSheet);
+  }
+
+  return "Database CBT Berhasil Dibuat!";
+}
+
+/**
+ * 2. VERIFIKASI LOGIN SISWA
+ */
+function verifyStudentLogin(nama, token) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheetSiswa = ss.getSheetByName("Master_Siswa");
+  if (!sheetSiswa) {
+    return { success: false, message: "Database Master_Siswa belum diinisialisasi!" };
+  }
+
+  const data = sheetSiswa.getDataRange().getValues();
+  const cleanNama = String(nama).trim().toLowerCase();
+  const cleanToken = String(token).trim().toUpperCase();
+
+  for (let i = 1; i < data.length; i++) {
+    const rowNama = String(data[i][0]).trim().toLowerCase();
+    const rowKelas = String(data[i][1]).trim();
+    const rowToken = String(data[i][2]).trim().toUpperCase();
+
+    if (rowNama === cleanNama && rowToken === cleanToken) {
+      // Cek apakah siswa sudah pernah mengumpulkan ujian (opsional, mencegah ujian ganda)
+      const sheetHasil = ss.getSheetByName("Hasil_Ujian");
+      if (sheetHasil) {
+        const hasilData = sheetHasil.getDataRange().getValues();
+        for (let j = 1; j < hasilData.length; j++) {
+          if (String(hasilData[j][1]).trim().toLowerCase() === cleanNama && String(hasilData[j][2]).trim() === rowKelas) {
+            return { 
+              success: false, 
+              message: "Anda sudah menyelesaikan ujian ini sebelumnya. Hubungi pengawas jika ingin mengulang." 
+            };
+          }
+        }
+      }
+
+      return {
+        success: true,
+        student: {
+          nama: String(data[i][0]).trim(),
+          kelas: rowKelas,
+          token: rowToken
+        }
+      };
+    }
+  }
+
+  return { success: false, message: "Nama Siswa atau Token Akses tidak valid!" };
+}
+
+/**
+ * 3. VERIFIKASI LOGIN ADMIN / GURU
+ */
+function verifyAdminLogin(password) {
+  const inputPass = String(password).trim();
+  // Mendukung password dari APP_CONFIG ("123") maupun "admincbt123" sesuai spesifikasi
+  if (inputPass === APP_CONFIG.PASSWORD_ADMIN || inputPass === "admincbt123") {
+    return { success: true };
+  }
+  return { success: false, message: "Password Admin / Guru salah!" };
+}
+
+/**
+ * 4. AMBIL SOAL UNTUK SISWA (KEAMANAN KETAT: TANPA KUNCI & PEMBAHASAN)
+ */
+function getQuestionsForStudent() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheetSoal = ss.getSheetByName("Master_Soal");
+  if (!sheetSoal) return [];
+
+  const data = sheetSoal.getDataRange().getValues();
+  const questions = [];
+
+  for (let i = 1; i < data.length; i++) {
